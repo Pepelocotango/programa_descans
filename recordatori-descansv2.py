@@ -1,27 +1,3 @@
-#!/bin/bash
-# Script d'instal·lació per al recordatori de descansos
-
-# Colors per a missatges
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
-echo -e "${YELLOW}Instal·lant el recordatori de descansos...${NC}"
-
-# Comprovar si tenim les dependències necessàries
-echo "Comprovant dependències..."
-sudo apt-get update
-sudo apt-get install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-notify-0.7
-
-# Crear directoris
-echo "Creant directoris..."
-mkdir -p ~/.local/bin
-mkdir -p ~/.config/recordatori-descansv2v2
-mkdir -p ~/.config/autostart
-
-# Copiar l'script
-echo "Instal·lant l'script principal..."
-cat > ~/.local/bin/recordatori-descansv2v2.py << 'EOL'
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
@@ -38,13 +14,15 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Notify', '0.7')
 from gi.repository import Gtk, GLib, Notify, Gdk
 
-CONFIG_PATH = os.path.expanduser("~/.config/recordatori-descansv2v2")
+CONFIG_PATH = os.path.expanduser("~/.config/recordatori-descans")
 CONFIG_FILE = os.path.join(CONFIG_PATH, "config.json")
 
 DEFAULT_CONFIG = {
     "temps_treball": 50,  # Temps de treball en minuts
     "temps_descans": 10,  # Temps de descans en minuts
-    "missatge": "Descansa 10 min!"
+    "missatge": "Descansa 10 min!",
+    "autostart": True,    # Nova configuració per iniciar automàticament
+    "amb_so": True        # Nova configuració per activar/desactivar el so
 }
 
 class ConfigDialog(Gtk.Dialog):
@@ -52,7 +30,7 @@ class ConfigDialog(Gtk.Dialog):
         Gtk.Dialog.__init__(
             self, title="Configuració", transient_for=parent, flags=0
         )
-        self.set_default_size(300, 200)
+        self.set_default_size(300, 220)  # Augmentem una mica l'alçada per la nova opció
         
         box = self.get_content_area()
         
@@ -88,6 +66,16 @@ class ConfigDialog(Gtk.Dialog):
         self.missatge_entry.set_text(config["missatge"])
         grid.attach(self.missatge_entry, 1, 2, 1, 1)
         
+        # Opció d'iniciar automàticament
+        self.autostart_check = Gtk.CheckButton(label="Iniciar automàticament")
+        self.autostart_check.set_active(config.get("autostart", True))
+        grid.attach(self.autostart_check, 0, 3, 2, 1)
+        
+        # Nova opció per activar/desactivar el so
+        self.amb_so_check = Gtk.CheckButton(label="Activar so de notificació")
+        self.amb_so_check.set_active(config.get("amb_so", True))
+        grid.attach(self.amb_so_check, 0, 4, 2, 1)
+        
         box.add(grid)
         
         # Botons
@@ -100,45 +88,48 @@ class ConfigDialog(Gtk.Dialog):
         return {
             "temps_treball": self.temps_treball_entry.get_value_as_int(),
             "temps_descans": self.temps_descans_entry.get_value_as_int(),
-            "missatge": self.missatge_entry.get_text()
+            "missatge": self.missatge_entry.get_text(),
+            "autostart": self.autostart_check.get_active(),
+            "amb_so": self.amb_so_check.get_active()
         }
 
 class BreakWindow(Gtk.Window):
     def __init__(self, missatge, temps_descans):
         Gtk.Window.__init__(self, title="Recordatori de Descans")
         self.set_keep_above(True)
-        self.set_default_size(400, 200)
+        self.set_default_size(600, 400)  # Finestra més gran
         self.set_position(Gtk.WindowPosition.CENTER)
         
-        # Fer la finestra transparent
-        screen = self.get_screen()
-        visual = screen.get_rgba_visual()
-        if visual and screen.is_composited():
-            self.set_visual(visual)
-            self.set_app_paintable(True)
+        # Configurar fons negre
+        self.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1))
         
         # Contingut
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        vbox.set_margin_top(20)
-        vbox.set_margin_bottom(20)
-        vbox.set_margin_start(20)
-        vbox.set_margin_end(20)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
+        vbox.set_margin_top(40)
+        vbox.set_margin_bottom(40)
+        vbox.set_margin_start(40)
+        vbox.set_margin_end(40)
         
-        # Missatge principal
+        # Missatge principal amb lletres blanques
         label_missatge = Gtk.Label()
-        label_missatge.set_markup(f'<span size="xx-large" weight="bold">{missatge}</span>')
+        label_missatge.set_markup(f'<span size="xx-large" weight="bold" color="white">{missatge}</span>')
+        label_missatge.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1))
         vbox.pack_start(label_missatge, True, True, 0)
         
-        # Compte enrere
+        # Compte enrere amb lletres blanques
         self.temps_restant = temps_descans * 60
         self.label_compte = Gtk.Label()
+        self.label_compte.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1))
         self.actualitza_compte()
         vbox.pack_start(self.label_compte, True, True, 0)
         
         # Botó per tancar manualment
         button = Gtk.Button(label="Tanca")
         button.connect("clicked", self.on_button_clicked)
-        vbox.pack_start(button, False, False, 0)
+        button.set_size_request(120, 40)  # Botó més gran
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        button_box.pack_start(button, True, False, 0)
+        vbox.pack_start(button_box, False, False, 0)
         
         self.add(vbox)
         
@@ -152,7 +143,7 @@ class BreakWindow(Gtk.Window):
         
         minuts = self.temps_restant // 60
         segons = self.temps_restant % 60
-        self.label_compte.set_text(f"Es tancarà en: {minuts:02d}:{segons:02d}")
+        self.label_compte.set_markup(f'<span size="x-large" color="white">Es tancarà en: {minuts:02d}:{segons:02d}</span>')
         
         self.temps_restant -= 1
         return True
@@ -175,6 +166,18 @@ class RecordatoriApp:
         self.timer_running = False
         self.timer_thread = None
         self.next_break_time = None
+        
+        # Iniciar automàticament si està configurat així - ho posposem amb un retard
+        # per assegurar que l'aplicació està completament inicialitzada
+        if self.config.get("autostart", True):
+            GLib.timeout_add(1000, self.delayed_autostart)
+    
+    def delayed_autostart(self):
+        # Aquesta funció s'executa després d'un petit retard
+        # per assegurar que l'aplicació està completament inicialitzada
+        if not self.timer_running:
+            self.toggle_timer(None)
+        return False  # Retornem False per no repetir el timeout
     
     def carregar_config(self):
         # Assegurar-se que el directori de configuració existeix
@@ -184,7 +187,13 @@ class RecordatoriApp:
         if os.path.exists(CONFIG_FILE):
             try:
                 with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    config = json.load(f)
+                    # Afegir opcions noves si no existeixen
+                    if "autostart" not in config:
+                        config["autostart"] = True
+                    if "amb_so" not in config:
+                        config["amb_so"] = True
+                    return config
             except:
                 return DEFAULT_CONFIG
         else:
@@ -234,12 +243,25 @@ class RecordatoriApp:
         response = dialog.run()
         
         if response == Gtk.ResponseType.OK:
+            # Desar configuració antiga per comprovar canvis
+            timer_estava_actiu = self.timer_running
+            configuracio_antiga = self.config.copy()
+            
+            # Actualitzar configuració
             self.config = dialog.get_config()
             self.guardar_config(self.config)
             
-            # Reiniciar el temporitzador si estava actiu
-            if self.timer_running:
+            # Reiniciar el temporitzador si estava actiu o si l'autostart està activat
+            if timer_estava_actiu:
                 self.stop_timer()
+                self.start_timer()
+            elif not timer_estava_actiu and self.config.get("autostart", True):
+                # Si el temporitzador no estava actiu però ara autostart està activat
+                self.start_timer()
+                self.menu_start_stop.set_label("Parar temporitzador")
+            elif timer_estava_actiu and not self.config.get("autostart", True):
+                # Si autostart s'ha desactivat però el temporitzador estava actiu,
+                # mantenim el temporitzador actiu però actualitzem els temps
                 self.start_timer()
         
         dialog.destroy()
@@ -251,10 +273,16 @@ class RecordatoriApp:
         else:
             self.start_timer()
             self.menu_start_stop.set_label("Parar temporitzador")
+        
+        # Retornem True per indicar que l'acció s'ha realitzat correctament
+        return True
     
     def start_timer(self):
         if self.timer_thread and self.timer_thread.is_alive():
-            return
+            # Aturem el fil de temporització existent per poder-lo reiniciar
+            self.timer_running = False
+            # Esperem un moment perquè el fil s'aturi
+            time.sleep(0.5)
         
         self.timer_running = True
         self.timer_thread = threading.Thread(target=self.timer_loop)
@@ -280,16 +308,28 @@ class RecordatoriApp:
             self.icon.set_tooltip_text("Recordatori de Descans")
     
     def timer_loop(self):
+        last_check_time = time.time()
+        
         while self.timer_running:
+            current_time = time.time()
+            
+            # Detectar si l'hora del sistema ha canviat significativament
+            if current_time - last_check_time > 2 or current_time - last_check_time < 0:
+                # L'hora del sistema ha canviat, recalculem el proper descans
+                if self.next_break_time:
+                    self.next_break_time = current_time + (self.config["temps_treball"] * 60)
+            
+            last_check_time = current_time
+            
             # Actualitzar tooltip cada segon
             GLib.idle_add(self.update_tooltip)
             
             # Comprovar si és hora de descans
-            if self.next_break_time and time.time() >= self.next_break_time:
+            if self.next_break_time and current_time >= self.next_break_time:
                 GLib.idle_add(self.show_break_notification)
                 
                 # Calcular el temps del següent descans
-                self.next_break_time = time.time() + (self.config["temps_treball"] * 60)
+                self.next_break_time = current_time + (self.config["temps_treball"] * 60)
             
             time.sleep(1)
     
@@ -303,9 +343,20 @@ class RecordatoriApp:
         notificacio.set_urgency(Notify.Urgency.CRITICAL)
         notificacio.show()
         
+        # Reproduir un so d'alerta si està activat
+        if self.config.get("amb_so", True):
+            try:
+                import subprocess
+                subprocess.Popen(["paplay", "/usr/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga"], 
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except:
+                pass  # Ignora errors si no es pot reproduir el so
+        
         # Mostrar finestra de descans
         break_window = BreakWindow(self.config["missatge"], self.config["temps_descans"])
         break_window.connect("destroy", self.on_break_window_closed)
+        # Assegurar que la finestra s'expandeix a la mida completa
+        break_window.set_default_size(800, 600)
         break_window.show_all()
     
     def on_break_window_closed(self, window):
@@ -314,61 +365,26 @@ class RecordatoriApp:
 def main():
     parser = argparse.ArgumentParser(description="Recordatori de descansos per a Ubuntu")
     parser.add_argument("--autostart", action="store_true", help="Inicia automàticament el temporitzador")
+    parser.add_argument("--no-autostart", action="store_true", help="No inicia automàticament el temporitzador")
     args = parser.parse_args()
     
     app = RecordatoriApp()
     
-    # Iniciar automàticament si s'indica
-    if args.autostart:
-        GLib.idle_add(app.toggle_timer, None)
+    # Si s'indica --no-autostart explícitament, sobreescriu la configuració
+    if args.no_autostart:
+        # Aturar el temporitzador si s'ha iniciat automàticament
+        app.config["autostart"] = False  # Desactivem l'autostart a la configuració
+        app.guardar_config(app.config)   # Guardem la configuració
+        if app.timer_running:
+            GLib.idle_add(app.toggle_timer, None)
+    # Si s'indica --autostart explícitament, sobreescriu la configuració
+    elif args.autostart:
+        app.config["autostart"] = True  # Activem l'autostart a la configuració
+        app.guardar_config(app.config)  # Guardem la configuració
+        if not app.timer_running:
+            GLib.idle_add(app.toggle_timer, None)
     
     Gtk.main()
 
 if __name__ == "__main__":
     main()
-EOL
-
-# Fer l'script executable
-chmod +x ~/.local/bin/recordatori-descansv2v2.py
-
-# Crear l'entrada d'autoarranc
-echo "Configurant autoarranc..."
-cat > ~/.config/autostart/recordatori-descansv2v2.desktop << EOL
-[Desktop Entry]
-Type=Application
-Name=Recordatori de Descans
-Comment=Aplicació de recordatori de descansos saludables
-Exec=python3 $HOME/.local/bin/recordatori-descansv2v2.py --autostart
-Terminal=false
-Categories=Utility;
-StartupNotify=false
-Hidden=false
-EOL
-
-# Crear una entrada al menú d'aplicacions
-echo "Creant accés directe..."
-mkdir -p ~/.local/share/applications
-cat > ~/.local/share/applications/recordatori-descansv2.desktop << EOL
-[Desktop Entry]
-Type=Application
-Name=Recordatori de Descans
-Comment=Aplicació de recordatori de descansos saludables
-Exec=python3 $HOME/.local/bin/recordatori-descansv2.py
-Icon=appointment-soon
-Terminal=false
-Categories=Utility;
-StartupNotify=false
-EOL
-
-echo -e "${GREEN}Instal·lació completada!${NC}"
-echo "L'aplicació s'iniciarà automàticament quan iniciïs sessió."
-echo "També pots iniciar-la des del menú d'aplicacions o executant:"
-echo "python3 ~/.local/bin/recordatori-descansv2.py"
-echo ""
-echo "Vols iniciar l'aplicació ara mateix? (s/n)"
-read -r resposta
-if [[ $resposta =~ ^[Ss]$ ]]; then
-    echo "Iniciant l'aplicació..."
-    python3 ~/.local/bin/recordatori-descansv2.py &
-    echo "Aplicació iniciada!"
-fi
