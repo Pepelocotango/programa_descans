@@ -130,3 +130,7 @@ Aquest projecte està llicenciat sota la Llicència MIT. Vegeu el fitxer `LICENS
 ## Llicència
 
 Aquest projecte està llicenciat sota la llicència **GNU General Public License v3.0**. Consulta el fitxer [LICENSE](LICENSE) per obtenir més detalls.
+
+---
+**Visita el portal de projectes:** [https://pepelocotango.github.io](https://pepelocotango.github.io)
+---
