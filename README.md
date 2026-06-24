@@ -1,3 +1,7 @@
+# Autor
+
+Pëp pepelocotango@gmail.com
+
 # Recordatori de Descans v2
 
 Un senzill recordatori de descansos per a escriptoris Linux (especialment aquells basats en GTK3 com Ubuntu MATE), escrit en Python 3 i GTK3. T'ajuda a gestionar el temps de treball i descans mostrant una finestra bloquejant durant els períodes de pausa.
@@ -123,3 +127,6 @@ Dissenyada per a **entorns d'escriptori Linux basats en GTK3** (MATE, XFCE, Cinn
 ## Llicència
 
 Aquest projecte està llicenciat sota la Llicència MIT. Vegeu el fitxer `LICENSE.txt`.
+## Llicència
+
+Aquest projecte està llicenciat sota la llicència **GNU General Public License v3.0**. Consulta el fitxer [LICENSE](LICENSE) per obtenir més detalls.
